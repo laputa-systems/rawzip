@@ -12,6 +12,10 @@ A low-level, composable Zip archive reader and writer.
 
 rawzip was born from the need for performance and choice. Other zip libraries materialize the central directory with an avalanche of allocations and tie one to a particular decompression implementation. rawzip does neither. There are half a dozen high-quality DEFLATE crates and several Zstandard crates. All have their uses, so users should be empowered to choose what makes sense. The Zip file specification does not change frequently, and the goal is that this library won't change frequently either.
 
+## Supported platforms
+
+macOS and Linux. Windows is not supported.
+
 ## Quickstart
 
 A round-trip: write a DEFLATE-compressed `file.txt`, then read it back. rawzip

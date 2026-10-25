@@ -291,7 +291,7 @@ fn extract_zip_archive<P: AsRef<std::path::Path>>(
             _ => {}
         };
 
-        // Set file attributes based on platform
+        // Set file permissions from the entry mode
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -306,31 +306,6 @@ fn extract_zip_archive<P: AsRef<std::path::Path>>(
                     format!("Failed to set file permissions for: {}", out_path.display()),
                 )
             })?;
-        }
-
-        #[cfg(windows)]
-        {
-            // Detect if the file should be marked as readonly
-            if entry.mode().permissions() & 0o200 == 0 {
-                let mut perms = std::fs::metadata(&out_path)
-                    .map_err(|e| {
-                        ExtractionError::io_context(
-                            e,
-                            format!("Failed to read file metadata for: {}", out_path.display()),
-                        )
-                    })?
-                    .permissions();
-                perms.set_readonly(true);
-                std::fs::set_permissions(&out_path, perms).map_err(|e| {
-                    ExtractionError::io_context(
-                        e,
-                        format!(
-                            "Failed to set readonly attribute for: {}",
-                            out_path.display()
-                        ),
-                    )
-                })?;
-            }
         }
     }
 
