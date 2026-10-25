@@ -3,8 +3,6 @@ use std::io::Read;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
-#[cfg(windows)]
-use std::os::windows::fs::FileExt;
 use std::{rc::Rc, sync::Arc};
 
 /// Provides reading bytes at a specific offset
@@ -90,20 +88,20 @@ impl<T: ReaderAt> ReaderAtExt for T {
     }
 }
 
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(unix))]
 #[derive(Debug)]
 pub struct FileReader(MutexReader<std::fs::File>);
 
 /// A file wrapper that implements [`ReaderAt`] across platforms.
-#[cfg(any(unix, windows))]
+#[cfg(unix)]
 #[derive(Debug)]
 pub struct FileReader(std::fs::File);
 
 impl FileReader {
     pub fn into_inner(self) -> std::fs::File {
-        #[cfg(not(any(unix, windows)))]
+        #[cfg(not(unix))]
         return self.0.into_inner();
-        #[cfg(any(unix, windows))]
+        #[cfg(unix)]
         return self.0;
     }
 }
@@ -113,9 +111,7 @@ impl ReaderAt for FileReader {
     fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
         #[cfg(unix)]
         return self.0.read_at(buf, offset);
-        #[cfg(windows)]
-        return self.0.seek_read(buf, offset);
-        #[cfg(not(any(unix, windows)))]
+        #[cfg(not(unix))]
         return self.0.read_at(buf, offset);
     }
 }
@@ -128,12 +124,12 @@ impl std::io::Seek for FileReader {
 }
 
 impl From<std::fs::File> for FileReader {
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(not(unix))]
     fn from(file: std::fs::File) -> Self {
         Self(MutexReader(std::sync::Mutex::new(file)))
     }
 
-    #[cfg(any(unix, windows))]
+    #[cfg(unix)]
     fn from(file: std::fs::File) -> Self {
         Self(file)
     }
@@ -160,10 +156,6 @@ where
     /// For seekable implementations, we can emulate the read_at method by
     /// seeking to the offset, reading the data, and then seeking back to the
     /// original position within a mutex.
-    ///
-    /// This is how Go implements the `io.ReaderAt` interface for filed on
-    /// Windows:
-    /// https://github.com/golang/go/blob/70b603f4d295573197b43ad090d7cad21895144e/src/internal/poll/fd_windows.go#L525
     fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
         let mut lock = self.0.lock().unwrap();
         let original_position = lock.stream_position()?;
