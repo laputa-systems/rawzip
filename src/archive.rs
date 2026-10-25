@@ -179,7 +179,7 @@ impl<T: AsRef<[u8]>> ZipSliceArchive<T> {
     /// present before returning a [`ZipSliceEntry`].
     pub fn get_entry(&self, entry: ZipArchiveEntryWayfinder) -> Result<ZipSliceEntry<'_>, Error> {
         let data = self.data.as_ref();
-        let header = &data[(entry.local_header_offset as usize).min(data.len())..];
+        let header = &data[entry.local_header_offset.min(data.len() as u64) as usize..];
         let file_header = ZipLocalFileHeaderFixed::parse(header)?;
         let variable_length = file_header.variable_length();
 
@@ -365,9 +365,16 @@ pub struct ZipSliceEntries<'data> {
 
 impl<'data> ZipSliceEntries<'data> {
     /// Yield the next zip file entry in the central directory if there is any
+    ///
+    /// An error is terminal. After this method returns an error, all
+    /// subsequent calls return `Ok(None)`.
     #[inline]
     pub fn next_entry(&mut self) -> Result<Option<ZipFileHeaderRecord<'data>>, Error> {
-        self.next_file_entry()
+        let result = self.next_file_entry();
+        if result.is_err() {
+            self.entry_data = &[];
+        }
+        result
     }
 
     // Use inline always as this improved slice extraction of 100k entries by 14%.
@@ -396,7 +403,11 @@ impl<'data> ZipSliceEntries<'data> {
             file_comment,
             self.current_offset,
         );
-        entry.local_header_offset += self.base_offset;
+        // An offset past u64::MAX is past the end of all possible inputs.
+        entry.local_header_offset = entry
+            .local_header_offset
+            .checked_add(self.base_offset)
+            .ok_or(ErrorKind::Eof)?;
         self.current_offset += (self.entry_data.len() - entry_data.len()) as u64;
         self.entry_data = entry_data;
         Ok(Some(entry))
@@ -431,6 +442,8 @@ impl<'data> Iterator for ZipSliceEntries<'data> {
         self.next_entry().transpose()
     }
 }
+
+impl core::iter::FusedIterator for ZipSliceEntries<'_> {}
 
 /// The main entrypoint for reading a Zip archive.
 ///

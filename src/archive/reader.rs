@@ -124,6 +124,7 @@ impl<R> ZipArchive<R> {
             offset: self.eocd.directory_offset(),
             base_offset: self.eocd.base_offset(),
             central_dir_end_pos: self.eocd.head_eocd_offset(),
+            done: false,
         }
     }
 
@@ -521,6 +522,7 @@ pub struct ZipEntries<'archive, 'buf, R> {
     offset: u64,
     base_offset: u64,
     central_dir_end_pos: u64,
+    done: bool,
 }
 
 impl<R> ZipEntries<'_, '_, R>
@@ -531,6 +533,9 @@ where
     ///
     /// This method reads from the underlying archive reader into the provided
     /// buffer to parse entry headers.
+    ///
+    /// An error is terminal. After this method returns an error, all
+    /// subsequent calls return `Ok(None)`.
     #[inline]
     pub fn next_entry(&mut self) -> Result<Option<ZipFileHeaderRecord<'_>>, Error> {
         self.next_entry_impl()
@@ -540,6 +545,14 @@ where
     // extraction benchmark, it is still yielded as 12% improvement when just iterating.
     #[inline(always)]
     fn next_entry_impl(&mut self) -> Result<Option<ZipFileHeaderRecord<'_>>, Error> {
+        if self.done {
+            return Ok(None);
+        }
+
+        // Assume that iteration stops here. Only a successful parse clears the
+        // flag, so every error path (including `?`) ends iteration.
+        self.done = true;
+
         if self.pos + ZipFileHeaderFixed::SIZE > self.end {
             if self.offset >= self.central_dir_end_pos {
                 return if self.pos == self.end {
@@ -554,8 +567,8 @@ where
 
             let remaining = self.end - self.pos;
             self.buffer.copy_within(self.pos..self.end, 0);
-            let max_read = ((self.central_dir_end_pos - self.offset) as usize)
-                .min(self.buffer.len() - remaining);
+            let max_read = (self.central_dir_end_pos - self.offset)
+                .min((self.buffer.len() - remaining) as u64) as usize;
             let min_read = ZipFileHeaderFixed::SIZE.min(remaining + max_read) - remaining;
             let read = self.archive.reader.read_at_least_at(
                 &mut self.buffer[remaining..][..max_read],
@@ -589,14 +602,14 @@ where
 
             // The variable section runs past the end of the central directory,
             // so the archive is truncated or corrupt.
-            let cd_remaining = remaining + (self.central_dir_end_pos - self.offset) as usize;
-            if variable_length > cd_remaining {
+            let cd_remaining = remaining as u64 + (self.central_dir_end_pos - self.offset);
+            if variable_length as u64 > cd_remaining {
                 return Err(Error::from(ErrorKind::Eof));
             }
 
             self.buffer.copy_within(self.pos..self.end, 0);
-            let max_read = ((self.central_dir_end_pos - self.offset) as usize)
-                .min(self.buffer.len() - remaining);
+            let max_read = (self.central_dir_end_pos - self.offset)
+                .min((self.buffer.len() - remaining) as u64) as usize;
             let read = self.archive.reader.read_at_least_at(
                 &mut self.buffer[remaining..][..max_read],
                 variable_length - remaining,
@@ -618,8 +631,13 @@ where
             file_comment,
             central_directory_offset,
         );
-        file_header.local_header_offset += self.base_offset;
+        // An offset past u64::MAX is past the end of all possible inputs.
+        file_header.local_header_offset = file_header
+            .local_header_offset
+            .checked_add(self.base_offset)
+            .ok_or(ErrorKind::Eof)?;
         self.pos += variable_length;
+        self.done = false;
         Ok(Some(file_header))
     }
 
@@ -764,5 +782,43 @@ mod tests {
         // Verify both APIs return identical ranges
         assert_eq!(slice_range1, reader_range1);
         assert_eq!(slice_range2, reader_range2);
+    }
+
+    const LONG_NAME: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/";
+
+    /// Make an archive with one directory entry with a 40 byte name.
+    fn long_name_archive() -> ZipArchive<Vec<u8>> {
+        let mut data = Vec::new();
+        let mut writer = crate::ZipArchiveWriter::new(&mut data);
+        writer.new_dir(LONG_NAME).create().unwrap();
+        writer.finish().unwrap();
+        ZipArchive::from_slice(data).unwrap().into_reader_archive()
+    }
+
+    #[test]
+    fn central_dir_past_4gib_fills_buffer() {
+        // There are 4 GiB of central directory after the start. On a 32-bit
+        // target, a truncated difference caps the first read at 0 bytes.
+        let archive = long_name_archive();
+        let mut buffer = vec![0u8; RECOMMENDED_BUFFER_SIZE];
+        let mut entries = archive.entries(&mut buffer);
+        entries.central_dir_end_pos = entries.offset + (1 << 32);
+
+        let entry = entries.next_entry().unwrap().unwrap();
+        assert_eq!(entry.file_path().as_ref(), LONG_NAME.as_bytes());
+    }
+
+    #[test]
+    fn central_dir_past_4gib_reads_variable_length() {
+        // The buffer holds the fixed header and only a part of the name. When
+        // the first read is complete, 4 GiB of central directory remain. On a
+        // 32-bit target, a truncated difference gives a false EOF.
+        let archive = long_name_archive();
+        let mut buffer = vec![0u8; 64];
+        let mut entries = archive.entries(&mut buffer);
+        entries.central_dir_end_pos = entries.offset + 64 + (1 << 32);
+
+        let entry = entries.next_entry().unwrap().unwrap();
+        assert_eq!(entry.file_path().as_ref(), LONG_NAME.as_bytes());
     }
 }
