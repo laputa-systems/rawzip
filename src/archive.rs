@@ -755,7 +755,6 @@ impl DataDescriptor {
     where
         R: ReaderAt,
     {
-        // It's safe to over-read here due to size of cd + eocd is already greater
         let mut buffer = [0u8; Self::MAX_SIZE];
         let read = reader.try_read_at_least_at(&mut buffer, Self::MAX_SIZE, offset)?;
         Self::parse(&buffer[..read], uses_zip64_sizes)
@@ -819,8 +818,6 @@ pub(crate) struct Zip64EndOfCentralDirectoryRecord {
 
     /// offset of start of central directory with respect to the starting disk number
     pub central_dir_offset: u64,
-    // zip64 extensible data sector
-    // pub extensible_data: Vec<u8>,
 }
 
 impl Zip64EndOfCentralDirectoryRecord {
@@ -966,7 +963,6 @@ impl From<u16> for CompressionMethod {
     }
 }
 
-// Backwards-compat aliases for the old enum variant names.
 #[allow(non_upper_case_globals)]
 impl CompressionMethod {
     #[deprecated(note = "use CompressionMethod::STORE")]

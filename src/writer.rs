@@ -272,9 +272,11 @@ pub enum Crc32Option {
     Calculate,
     /// Use a custom CRC32 value and skip calculation.
     Custom(u32),
-    /// Skip CRC32 calculation entirely (sets CRC32 to 0).
+    /// Skip CRC32 calculation and store a CRC32 of 0.
     ///
-    /// Verifying readers will reject these entries
+    /// A verifying reader accepts the entry only when the uncompressed CRC32
+    /// is 0. Empty entries pass. A non-empty entry passes only when its CRC32
+    /// is actually 0.
     Skip,
 }
 
@@ -1775,8 +1777,7 @@ mod tests {
             }
         }
 
-        // Test with skipped CRC on non-empty data - stores CRC of 0, which is
-        // not legitimate for a non-empty entry, so verification must fail.
+        // Skip stores CRC 0. This payload's CRC is not 0, so verification fails.
         {
             let mut output = Cursor::new(Vec::new());
             let mut archive = ZipArchiveWriter::new(&mut output);

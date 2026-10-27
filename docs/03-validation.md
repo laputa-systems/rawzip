@@ -98,6 +98,5 @@ assert_eq!(output, b"trust, but verify");
 
 Next: [Encryption](crate::guide::encryption)
 
-[crc-tests]: https://github.com/nickbabcock/rawzip/blob/master/tests/it/crc_tests.rs
-[extract-example]: https://github.com/nickbabcock/rawzip/blob/master/examples/extract.rs
-[security]: https://github.com/nickbabcock/rawzip#security
+[extract-example]: https://github.com/laputa-systems/rawzip/blob/master/examples/extract.rs
+[security]: https://github.com/laputa-systems/rawzip#security

@@ -3,7 +3,7 @@ A low-level, composable Zip archive reader and writer.
 
 ## Features
 
-- Pure Rust. Zero dependencies. Zero unsafe. [Untouchable performance](https://github.com/nickbabcock/rawzip#benchmarks).
+- Pure Rust. Zero dependencies. Zero unsafe. [Untouchable performance](https://github.com/laputa-systems/rawzip#benchmarks).
 - Zip64 support (read and write archives with 100k+ entries, >100 GB archives, >5 GB entries)
 - Fan out streaming (de)compression across multiple threads
 - Zero-allocation streaming reader. In-memory reads are zero-copy and `no_std`
@@ -103,7 +103,7 @@ What consumers must handle:
 - Multiple file entries with the same file name
 - Unexpected central directory entry count. When the central directory iterator ends or errors, check against the number of expected entries to know whether an error should be raised or suppressed.
 
-See the [extractor example](https://github.com/nickbabcock/rawzip/blob/master/examples/extract.rs) for a practical starting point that applies several of these mitigations.
+See the [extractor example](https://github.com/laputa-systems/rawzip/blob/master/examples/extract.rs) for a practical starting point that applies several of these mitigations. It overwrites duplicate normalized names and follows a symlink already present under the destination.
 */
 #![forbid(unsafe_code)]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]

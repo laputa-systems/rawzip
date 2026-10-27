@@ -5,6 +5,8 @@
 //!
 //! - Supports only store, deflate, and zstd compression methods
 //! - Supports only UTF-8 file paths
+//! - Overwrites an existing file when two entries normalize to the same path
+//! - Follows a symlink already present under the destination
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();

@@ -92,4 +92,4 @@ archive.finish()?;
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-[winzip-aes-test]: https://github.com/nickbabcock/rawzip/blob/master/tests/it/encryption_tests.rs
+[winzip-aes-test]: https://github.com/laputa-systems/rawzip/blob/master/tests/it/encryption_tests.rs

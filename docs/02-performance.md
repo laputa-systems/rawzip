@@ -1,4 +1,4 @@
-[Benchmarks](https://github.com/nickbabcock/rawzip#benchmarks) attest that rawzip is fast.
+[Benchmarks](https://github.com/laputa-systems/rawzip#benchmarks) attest that rawzip is fast.
 
 rawzip is at least one to two orders of magnitude faster than other zip libraries. A zip archive's structural parsing should melt away in the face of the actual heavy lifting: decompression. But in the wake of other zip libraries materializing the central directory with an avalanche of allocations on files with many entries, rawzip was born.
 

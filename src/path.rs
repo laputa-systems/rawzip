@@ -48,7 +48,7 @@ Normalized paths have been validated and sanitized according to these rules:
 - Relative components: Current directory (`.`) and parent directory (`..`)
   resolved
 - Leading separators: Absolute paths made relative (`/foo` -> `foo`)
-- Drive letters: Windows drive prefixes removed (`C:\\foo` -> `foo`)
+- Colons: only the text after the last colon is kept (`C:\\foo` becomes `foo`, and `notes:draft.txt` becomes `draft.txt`)
 - Escape prevention: Paths cannot escape the archive root directory
 
 ## Usage Examples
@@ -624,7 +624,6 @@ mod tests {
     fn test_raw_path_lifetime_preservation() {
         use std::str::Utf8Error;
 
-        // See https://github.com/nickbabcock/rawzip/issues/101
         fn file_path_utf8<'a>(path: ZipFilePath<RawPath<'a>>) -> Result<&'a str, Utf8Error> {
             std::str::from_utf8(path.as_bytes())
         }
