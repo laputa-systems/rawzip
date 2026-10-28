@@ -48,7 +48,7 @@ Normalized paths have been validated and sanitized according to these rules:
 - Relative components: Current directory (`.`) and parent directory (`..`)
   resolved
 - Leading separators: Absolute paths made relative (`/foo` -> `foo`)
-- Colons: only the text after the last colon is kept (`C:\\foo` becomes `foo`, and `notes:draft.txt` becomes `draft.txt`)
+- Drive letters: one leading `<letter>:` prefix is removed (`C:\\foo` becomes `foo`); any other colon is kept (`notes:draft.txt` stays unchanged)
 - Escape prevention: Paths cannot escape the archive root directory
 
 ## Usage Examples
@@ -238,7 +238,11 @@ impl ZipFilePath<()> {
         let s = s.replace('\\', "/");
 
         // 4.4.17.1 MUST NOT contain a drive or device letter
-        let s = s.split(':').next_back().unwrap_or_default();
+        let s = match s.as_bytes() {
+            [drive, b':', b'/', ..] if drive.is_ascii_alphabetic() => &s[3..],
+            [drive, b':', ..] if drive.is_ascii_alphabetic() => &s[2..],
+            _ => &s,
+        };
 
         // resolve path components
         let splits = s.split('/');
@@ -543,6 +547,9 @@ mod tests {
     #[case(b"C:\\hello\\test.txt", "hello/test.txt")]
     #[case(b"C:/hello\\test.txt", "hello/test.txt")]
     #[case(b"C:/hello/test.txt", "hello/test.txt")]
+    #[case(b"C:hello/test.txt", "hello/test.txt")]
+    #[case(b"notes:draft.txt", "notes:draft.txt")]
+    #[case(b"foo:bar:baz", "foo:bar:baz")]
     #[case(b"foo/bar/", "foo/bar/")]
     #[case(b"foo\\bar\\", "foo/bar/")]
     #[case(b"dir//sub/", "dir/sub/")]
