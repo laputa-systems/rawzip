@@ -35,7 +35,10 @@ fn set_mtime(file: &std::fs::File, dt: rawzip::time::UtcDateTime) -> std::io::Re
         epoch.checked_add(Duration::new(seconds as u64, nanos))
     }
     .ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, "ZIP timestamp out of range")
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "ZIP timestamp out of range",
+        )
     })?;
 
     file.set_times(std::fs::FileTimes::new().set_modified(mtime))
