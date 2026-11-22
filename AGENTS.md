@@ -4,6 +4,8 @@ Low-level Zip reader and writer. No runtime dependencies. `forbid(unsafe_code)`.
 
 ## Commands
 
+`make clean` removes this checkout’s build output in `./target`. It refuses symlinks and ordinary files at those paths.
+
 - `cargo test --all` runs the library, integration, and doc tests.
 - `cargo build --no-default-features --target x86_64-unknown-none` builds the core tier. Add `--features alloc` for the alloc tier.
 
