@@ -1,7 +1,10 @@
-.PHONY: lint
+.PHONY: lint test
 
 lint:
 	cargo clippy --all-targets --all-features -- --deny warnings
+
+test:
+	cargo test --all-features
 
 .PHONY: clean
 clean:
