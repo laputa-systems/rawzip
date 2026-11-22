@@ -21,6 +21,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn set_mtime(file: &std::fs::File, dt: rawzip::time::UtcDateTime) -> std::io::Result<()> {
+    use std::time::{Duration, SystemTime};
+
+    let seconds = dt.to_unix();
+    let nanos = dt.nanosecond();
+    let epoch = SystemTime::UNIX_EPOCH;
+    let mtime = if seconds < 0 {
+        let since = Duration::from_secs(seconds.unsigned_abs())
+            - Duration::from_nanos(u64::from(nanos));
+        epoch.checked_sub(since)
+    } else {
+        epoch.checked_add(Duration::new(seconds as u64, nanos))
+    }
+    .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "ZIP timestamp out of range"))?;
+
+    file.set_times(std::fs::FileTimes::new().set_modified(mtime))
+}
+
 fn extract_zip_archive<P: AsRef<std::path::Path>>(
     archive_path: P,
     target_dir: P,
@@ -238,8 +256,7 @@ fn extract_zip_archive<P: AsRef<std::path::Path>>(
 
         match entry.last_modified() {
             rawzip::time::ZipDateTimeKind::Utc(dt) => {
-                let mtime = filetime::FileTime::from_unix_time(dt.to_unix(), dt.nanosecond());
-                filetime::set_file_mtime(&out_path, mtime).map_err(|e| {
+                set_mtime(&outfile, dt).map_err(|e| {
                     ExtractionError::io_context(
                         e,
                         format!(
@@ -268,11 +285,7 @@ fn extract_zip_archive<P: AsRef<std::path::Path>>(
 
                 match utc_time {
                     Some(utc_time) => {
-                        let mtime = filetime::FileTime::from_unix_time(
-                            utc_time.to_unix(),
-                            utc_time.nanosecond(),
-                        );
-                        filetime::set_file_mtime(&out_path, mtime).map_err(|e| {
+                        set_mtime(&outfile, utc_time).map_err(|e| {
                             ExtractionError::io_context(
                                 e,
                                 format!(
