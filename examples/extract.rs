@@ -28,13 +28,15 @@ fn set_mtime(file: &std::fs::File, dt: rawzip::time::UtcDateTime) -> std::io::Re
     let nanos = dt.nanosecond();
     let epoch = SystemTime::UNIX_EPOCH;
     let mtime = if seconds < 0 {
-        let since = Duration::from_secs(seconds.unsigned_abs())
-            - Duration::from_nanos(u64::from(nanos));
+        let since =
+            Duration::from_secs(seconds.unsigned_abs()) - Duration::from_nanos(u64::from(nanos));
         epoch.checked_sub(since)
     } else {
         epoch.checked_add(Duration::new(seconds as u64, nanos))
     }
-    .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "ZIP timestamp out of range"))?;
+    .ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "ZIP timestamp out of range")
+    })?;
 
     file.set_times(std::fs::FileTimes::new().set_modified(mtime))
 }
